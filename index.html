@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Exit Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0e14;
+      --surface: #13161f;
+      --surface2: #1a1e2b;
+      --border: #252836;
+      --border2: #2f3347;
+      --gold: #e8a020;
+      --gold-dim: #7a5210;
+      --gold-glow: rgba(232,160,32,0.12);
+      --text: #dde2ee;
+      --text-muted: #6b7494;
+      --text-dim: #9399b2;
+      --green: #2dd98a;
+      --red: #f25555;
+      --blue: #5e8cf4;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+      --serif: 'Playfair Display', serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); font-weight: 400; line-height: 1.6; min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.4;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; position: relative; z-index: 1; }
+
+    /* HEADER */
+    header { border-bottom: 1px solid var(--border); padding: 36px 0 28px; margin-bottom: 28px; }
+    .badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--gold); background: var(--gold-glow); border: 1px solid var(--gold-dim); padding: 4px 10px; border-radius: 4px; margin-bottom: 10px; display: inline-block; }
+    h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 600; color: #fff; line-height: 1.2; letter-spacing: -0.01em; }
+    h1 em { color: var(--gold); font-style: italic; }
+    .header-sub { font-size: 0.875rem; color: var(--text-dim); margin-top: 6px; max-width: 600px; line-height: 1.5; }
+
+    /* EXPLAIN ACCORDION */
+    .explain { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+    .explain-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; cursor: pointer; user-select: none; }
+    .explain-head:hover { background: var(--surface2); }
+    .explain-icon { width: 22px; height: 22px; background: var(--gold-glow); border: 1px solid var(--gold-dim); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--gold); flex-shrink: 0; }
+    .explain-arrow { font-size: 12px; color: var(--text-muted); transition: transform 0.25s; }
+    .explain-arrow.open { transform: rotate(180deg); }
+    .explain-body { display: none; padding: 0 18px 18px; border-top: 1px solid var(--border); }
+    .explain-body.open { display: block; }
+    .explain-body p { font-size: 0.85rem; color: var(--text-dim); margin-top: 12px; line-height: 1.65; }
+    .explain-body p strong { color: var(--text); font-weight: 500; }
+    .explain-body p em { color: var(--gold); font-style: italic; }
+
+    /* LAYOUT */
+    .grid { display: grid; grid-template-columns: 355px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+    /* PANEL */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .panel + .panel { margin-top: 18px; }
+    .panel-head { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+    .ptitle { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; }
+    .pbody { padding: 18px; }
+
+    /* FIELDS */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 0.78rem; font-weight: 500; color: var(--text-dim); margin-bottom: 5px; }
+    label .hint { font-weight: 300; color: var(--text-muted); font-style: italic; }
+    input[type="number"] { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 0.9rem; padding: 9px 13px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; }
+    input[type="number"]:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px var(--gold-glow); }
+
+    /* RADIO TABS */
+    .tabs { display: flex; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+    .tabs input[type="radio"] { display: none; }
+    .tabs label { flex: 1; text-align: center; padding: 8px 4px; font-size: 0.73rem; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.18s; margin: 0; background: var(--surface2); line-height: 1.3; }
+    .tabs input[type="radio"]:checked + label { background: var(--gold-glow); color: var(--gold); }
+
+    /* RANGE */
+    .range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    input[type="range"] { flex: 1; -webkit-appearance: none; height: 4px; background: var(--border2); border-radius: 2px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--gold); border-radius: 50%; cursor: pointer; }
+    .rv { font-family: var(--mono); font-size: 0.8rem; color: var(--gold); min-width: 46px; text-align: right; }
+
+    /* NOTES */
+    .note { border-radius: 6px; padding: 9px 12px; font-size: 0.77rem; line-height: 1.5; margin-top: 8px; }
+    .note-blue  { background: rgba(94,140,244,0.07);  border: 1px solid rgba(94,140,244,0.2);  color: #7fa0ee; }
+    .note-gold  { background: var(--gold-glow);         border: 1px solid var(--gold-dim);         color: #c08820; }
+    .note-green { background: rgba(45,217,138,0.07);  border: 1px solid rgba(45,217,138,0.2);  color: #35c07a; }
+    .note-red   { background: rgba(242,85,85,0.07);   border: 1px solid rgba(242,85,85,0.2);   color: #d96060; }
+
+    /* DIVIDER */
+    .div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    /* DIM */
+    .dimmed { opacity: 0.3; pointer-events: none; }
+
+    /* PORTFOLIO BAR */
+    .pbar { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 11px 13px; margin-top: 12px; }
+    .pbar-lbl { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px; }
+    .pbar-track { display: flex; height: 11px; border-radius: 3px; overflow: hidden; }
+    .pbar-basis { background: #3a4060; }
+    .pbar-gain  { background: var(--green); }
+    .pbar-legend { display: flex; gap: 14px; margin-top: 6px; }
+    .pbar-item { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--text-muted); font-family: var(--mono); }
+    .pbar-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* VALUE BOXES */
+    .vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .vbox { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+    .vbox-lbl { font-size: 0.67rem; color: var(--text-muted); margin-bottom: 3px; }
+    .vbox-num { font-family: var(--mono); font-size: 0.93rem; }
+    .vbox-num.red   { color: var(--red); }
+    .vbox-num.green { color: var(--green); }
+
+    /* CHECKBOXES */
+    #crash-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+    #crash-checkboxes label { display: flex; align-items: center; gap: 4px; font-size: 0.77rem; color: var(--text-dim); cursor: pointer; user-select: none; margin: 0; }
+    input[type="checkbox"] { accent-color: var(--gold); }
+
+    /* SLABEL */
+    .slabel { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+    .sub { font-size: 0.77rem; color: var(--text-dim); line-height: 1.5; }
+
+    /* BREAK-EVEN CARDS */
+    .be-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 12px; }
+    .be-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px; }
+    .be-id    { font-family: var(--mono); font-size: 0.63rem; color: var(--gold); margin-bottom: 2px; }
+    .be-lbl   { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 5px; line-height: 1.3; }
+    .be-val   { font-family: var(--mono); font-size: 1.3rem; font-weight: 500; color: var(--gold); }
+    .be-val.green { color: var(--green); }
+    .be-val.muted { color: var(--text-muted); font-size: 0.9rem; }
+    .be-sub   { font-size: 0.66rem; color: var(--text-muted); margin-top: 3px; }
+    .be-summary { font-size: 0.82rem; color: var(--text-dim); line-height: 1.55; }
+
+    /* RESULTS STACK */
+    .rstack { display: flex; flex-direction: column; gap: 18px; }
+
+    /* TABLE */
+    .tscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    thead tr { border-bottom: 1px solid var(--border2); }
+    th { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.06em; color: var(--text-muted); text-align: right; padding: 8px 9px; font-weight: 400; white-space: nowrap; }
+    th.L { text-align: left; }
+    th.R { background: rgba(232,160,32,0.04); border-bottom: 2px solid var(--gold-dim); }
+    td { padding: 8px 9px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.77rem; text-align: right; color: var(--text-dim); white-space: nowrap; }
+    td.L { text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.01); }
+    .clabel { font-weight: 500; color: var(--text); font-size: 0.83rem; }
+    .cpos { color: var(--green); font-weight: 500; }
+    .cneg { color: var(--red); }
+    .czero { color: var(--text-muted); }
+    .cell-pct { font-size: 0.65rem; opacity: 0.65; margin-top: 1px; letter-spacing: 0.01em; }
+
+    /* PILLS */
+    .pill { display: inline-flex; align-items: center; font-size: 0.67rem; padding: 2px 6px; border-radius: 3px; font-family: var(--sans); white-space: nowrap; }
+    .p-hi   { background: rgba(242,85,85,0.12);  color: #f07070; }
+    .p-med  { background: rgba(232,160,32,0.12); color: #c08820; }
+    .p-low  { background: rgba(94,140,244,0.1);  color: #7a9ce0; }
+    .p-rare { background: rgba(107,116,148,0.1); color: var(--text-muted); }
+
+    /* FOOTER */
+    footer { margin-top: 48px; border-top: 1px solid var(--border); padding: 24px 0 52px; }
+    .disclaimer { font-size: 0.73rem; color: var(--text-muted); line-height: 1.65; max-width: 880px; }
+    .disclaimer strong { color: var(--text-dim); font-weight: 500; }
+
+    @media (max-width: 600px) {
+      .be-grid { grid-template-columns: 1fr 1fr; }
+      .be-val { font-size: 1.1rem; }
+      th, td { padding: 6px 6px; font-size: 0.68rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="badge">TAX-ADJUSTED EXIT ANALYSIS · CAPITAL GAINS</div>
+    <h1>Market Exit <em>Calculator</em></h1>
+    <p class="header-sub">Quantifies the tax drag of exiting your investments and calculates the minimum crash depth required to justify pulling out — at various re-entry points.</p>
+    <p class="header-sub">See corresponding <a style="color: white"  href="https://ozanciga.wordpress.com/2026/05/14/should-i-exit-the-stock-market/">blog post</a> for more information</p>
+  </header>
+
+  <!-- EXPLANATION -->
+  <div class="explain">
+    <div class="explain-head" onclick="toggleExplain()">
+      <div style="display:flex;align-items:center;gap:10px;font-size:0.875rem;font-weight:500;color:var(--text-dim);">
+        <div class="explain-icon">?</div>
+        <span>How this tool works — what it calculates and why</span>
+      </div>
+      <span class="explain-arrow" id="earrow">▼</span>
+    </div>
+    <div class="explain-body" id="ebody">
+      <p><strong>The core problem:</strong> Selling a taxable investment triggers a capital gains tax bill immediately. That tax reduces the cash available to redeploy. Even if you're right about a crash coming, the question is: is the crash large enough to offset the tax you paid to exit?</p>
+      <p><strong>What this calculates:</strong> It compares two paths — (A) you exit now, pay tax, hold cash, then re-enter at some point during or after the crash; vs. (B) you hold through the crash and recover. At the point both scenarios return to today's price, path A only wins if the crash was deep enough <em>and</em> re-entry was early enough.</p>
+      <p><strong>Re-entry timing matters enormously.</strong> Re-entering late (market mostly recovered) means you paid tax and gained little. Re-entering at the exact bottom maximises the benefit. The tool models five re-entry points: <em>R0</em> (perfect bottom) through <em>R4</em> (back at full price).</p>
+      <p><strong>RRSP — an important distinction:</strong> If you sell investments and convert to cash <em>within</em> your RRSP (staying registered), <strong>no tax is triggered</strong>. The tax only comes when you actually withdraw money from the plan. This means an RRSP investor can move to cash and re-enter freely with zero tax cost — mathematically equivalent to a TFSA for timing purposes. Only a full RRSP <em>withdrawal</em> triggers income tax on the entire amount.</p>
+      <p><strong>Reading the results table:</strong> Each cell shows two numbers. The dollar figure is the raw net gain or loss. The percentage below it — <em>net benefit ÷ current portfolio value</em> — is the scale-independent version of the same result: it tells you how much larger or smaller your portfolio would be at full recovery compared to simply holding. A <strong>+8%</strong> means you end up 8% ahead regardless of whether your portfolio is $50k or $5M. This is the more useful number for judging whether the edge is meaningful — a best-case of +0.5% barely justifies the stress and timing risk; a best-case of +20% is a different conversation.</p>
+      <p><strong>Purpose of this tool:</strong> This tool does not predict crashes or advise you to exit. It answers a precise mathematical question: <em>assuming</em> a crash of size X occurs, and assuming you can time exit and re-entry with a given accuracy — under what circumstances does exiting make financial sense?</p>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="grid">
+
+    <!-- ===== LEFT: INPUTS ===== -->
+    <div>
+
+      <!-- PORTFOLIO -->
+      <div class="panel">
+        <div class="panel-head"><div class="pdot"></div><span class="ptitle">Your Portfolio</span></div>
+        <div class="pbody">
+          <div class="field">
+            <label>Current Portfolio Value ($)</label>
+            <input type="number" id="currentValue" value="100000" min="0" step="1000" oninput="calculate()">
+          </div>
+          <div class="field">
+            <label>Original Cost Basis ($) <span class="hint">— what you paid</span></label>
+            <input type="number" id="costBasis" value="50000" min="0" step="1000" oninput="calculate()">
+          </div>
+          <div class="pbar">
+            <div class="pbar-lbl">Portfolio composition</div>
+            <div class="pbar-track">
+              <div class="pbar-basis" id="pb-basis" style="width:50%"></div>
+              <div class="pbar-gain"  id="pb-gain"  style="width:50%"></div>
+            </div>
+            <div class="pbar-legend">
+              <div class="pbar-item"><div class="pbar-dot" style="background:#3a4060"></div><span id="lbl-basis">Cost Basis: 50%</span></div>
+              <div class="pbar-item"><div class="pbar-dot" style="background:var(--green)"></div><span id="lbl-gain">Unrealized Gain: 50%</span></div>
+            </div>
+          </div>
+
+          <hr class="div">
+
+          <div class="field">
+            <label>Jurisdiction</label>
+            <div class="tabs">
+              <input type="radio" name="juris" id="j-ca" value="ca" checked onchange="onJurisdictionChange()">
+              <label for="j-ca">🇨🇦 Canada</label>
+              <input type="radio" name="juris" id="j-us" value="us" onchange="onJurisdictionChange()">
+              <label for="j-us">🇺🇸 United States</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Account Type</label>
+            <div class="tabs">
+              <input type="radio" name="acct" id="a-tax"   value="taxable"   checked onchange="calculate()">
+              <label for="a-tax"   id="lbl-tax">Taxable</label>
+              <input type="radio" name="acct" id="a-tfsa"  value="tfsa"      onchange="calculate()">
+              <label for="a-tfsa"  id="lbl-tax-free">TFSA</label>
+              <input type="radio" name="acct" id="a-rcash" value="rrsp-cash" onchange="calculate()">
+              <label for="a-rcash" id="lbl-reg-cash">RRSP<br><span style="font-size:0.62rem;opacity:0.75">cash in plan</span></label>
+              <input type="radio" name="acct" id="a-rout"  value="rrsp-out"  onchange="calculate()">
+              <label for="a-rout"  id="lbl-reg-out">RRSP<br><span style="font-size:0.62rem;opacity:0.75">withdraw</span></label>
+            </div>
+            <div id="acct-note" style="display:none;"></div>
+          </div>
+        </div>
+      </div><!-- /portfolio panel -->
+
+      <!-- TAX SETTINGS -->
+      <div class="panel" id="tax-panel">
+        <div class="panel-head"><div class="pdot"></div><span class="ptitle">Tax Settings</span></div>
+        <div class="pbody">
+
+          <div class="field">
+            <label>Marginal Tax Rate (%) <span class="hint">— total rate, all brackets</span></label>
+            <div class="range-row">
+              <input type="range" id="mrange" min="10" max="65" value="53" step="0.5" oninput="syncMarginal(this.value,'range')">
+              <span class="rv" id="mrlabel">53.0%</span>
+            </div>
+            <input type="number" id="marginalRate" value="53" min="0" max="70" step="0.5" oninput="syncMarginal(this.value,'input')">
+          </div>
+
+          <div class="field" style="margin-top:14px;">
+            <label>Capital Gains Inclusion Rate (%) <span class="hint">— taxable portion of gain</span></label>
+            <div class="range-row">
+              <input type="range" id="irange" min="0" max="100" value="50" step="1" oninput="syncInclusion(this.value,'range')">
+              <span class="rv" id="irlabel">50%</span>
+            </div>
+            <input type="number" id="inclusionRate" value="50" min="0" max="100" step="1" oninput="syncInclusion(this.value,'input')">
+            <div id="juris-tax-hint" class="note note-blue">
+              Default 50% — only half your gain is taxable income. Set to 100% if gains are treated as ordinary income in your jurisdiction, or adjust to match your local rules.
+            </div>
+          </div>
+
+          <hr class="div">
+          <div id="tax-summary"></div>
+        </div>
+      </div><!-- /tax panel -->
+
+      <!-- CRASH SELECTOR -->
+      <div class="panel">
+        <div class="panel-head"><div class="pdot"></div><span class="ptitle">Crash Scenarios</span></div>
+        <div class="pbody">
+          <p class="slabel">Select crash magnitudes to show</p>
+          <div id="crash-checkboxes"></div>
+          <hr class="div" style="margin-top:14px;">
+          <p class="slabel">Re-entry points (all 5 always shown)</p>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div class="sub"><span style="color:var(--gold);font-family:var(--mono);font-size:0.7rem;">R0</span> — At the bottom (perfect timing)</div>
+            <div class="sub"><span style="color:var(--gold);font-family:var(--mono);font-size:0.7rem;">R1</span> — 25% recovered from bottom</div>
+            <div class="sub"><span style="color:var(--gold);font-family:var(--mono);font-size:0.7rem;">R2</span> — 50% recovered (midway)</div>
+            <div class="sub"><span style="color:var(--gold);font-family:var(--mono);font-size:0.7rem;">R3</span> — 75% recovered</div>
+            <div class="sub"><span style="color:var(--gold);font-family:var(--mono);font-size:0.7rem;">R4</span> — Back at original price</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- ===== RIGHT: RESULTS ===== -->
+    <div class="rstack">
+
+      <!-- BREAK-EVEN -->
+      <div class="panel">
+        <div class="panel-head"><div class="pdot"></div><span class="ptitle">Minimum Crash to Break Even — by Re-entry Point</span></div>
+        <div class="pbody">
+          <p class="be-summary" id="be-summary">—</p>
+          <div class="be-grid" id="be-cards"></div>
+        </div>
+      </div>
+
+      <!-- MAIN TABLE -->
+      <div class="panel">
+        <div class="panel-head"><div class="pdot"></div><span class="ptitle">Net Benefit of Exiting vs. Holding — Crash Size × Re-entry Point</span></div>
+        <div style="padding: 10px 16px 8px;">
+          <p style="font-size:0.76rem;color:var(--text-muted);">
+            Net $ gain or loss from exiting vs. holding, assuming full recovery to today's price. <em style="color:var(--text-muted)">% below = net benefit as share of total portfolio — same result, scale-independent.</em>
+            <span style="color:var(--green)">Green = exit worth it.</span>
+            <span style="color:var(--red)">Red = holding was better.</span>
+          </p>
+        </div>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="L">Crash</th>
+                <th class="L">S&amp;P 500</th>
+                <th class="L">TSX</th>
+                <th class="L">MSCI World</th>
+                <th class="R">R0 Bottom</th>
+                <th class="R">R1 25%</th>
+                <th class="R">R2 50%</th>
+                <th class="R">R3 75%</th>
+                <th class="R">R4 Top</th>
+              </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+        <p style="font-size:0.7rem;color:var(--text-muted);padding:10px 14px;font-style:italic;">R4 (re-enter only at full recovery) is always negative — you paid tax and bought at the same price you sold. Both scenarios assume eventual full recovery.</p>
+      </div>
+
+      <!-- HISTORICAL TABLE -->
+      <div class="panel">
+        <div class="panel-head"><div class="pdot"></div><span class="ptitle">Historical Crash Frequency — S&amp;P 500, TSX &amp; MSCI World</span></div>
+        <div class="tscroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="L">Crash ≥</th>
+                <th class="L">S&amp;P 500 (~100 yrs)</th>
+                <th class="L">TSX (~55 yrs)</th>
+                <th class="L">MSCI World (~55 yrs)</th>
+                <th class="L">Recurrence (S&amp;P)</th>
+                <th class="L" style="white-space:normal;min-width:180px;">Notable Examples</th>
+              </tr>
+            </thead>
+            <tbody id="hist-body"></tbody>
+          </table>
+        </div>
+        <p style="font-size:0.7rem;color:var(--text-muted);padding:10px 14px;font-style:italic;">Approximate peak-to-trough declines. TSX from ~1970; MSCI World from ~1970. A −50% crash also counts as a −20% crash — figures are cumulative, not independent events.</p>
+      </div>
+
+    </div><!-- /right col -->
+  </div><!-- /grid -->
+
+  <footer>
+    <div class="disclaimer">
+      <strong>⚠ Disclaimer:</strong> This tool is for <strong>educational and illustrative purposes only</strong> and does not constitute financial, investment, or tax advice of any kind. All calculations are simplified mathematical models and do not account for transaction costs, bid-ask spreads, tax instalment obligations, opportunity cost of cash, foregone dividends, time value of money, foreign exchange effects, or other real-world considerations. Tax rates and historical crash frequencies are approximate. Past crash frequency is not a prediction of future market behaviour. <strong>Consult a qualified financial advisor and/or tax professional before making any investment decisions.</strong>
+    </div>
+  </footer>
+
+</div><!-- /container -->
+
+<script>
+// ================================================================
+//  DATA
+// ================================================================
+
+const CRASH_LEVELS = [5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 75, 90];
+
+const REENTRY = [
+  { id:'R0', label:'Bottom',   rec: 0    },
+  { id:'R1', label:'25% back', rec: 0.25 },
+  { id:'R2', label:'50% back', rec: 0.50 },
+  { id:'R3', label:'75% back', rec: 0.75 },
+  { id:'R4', label:'Full top', rec: 1.0  },
+];
+
+const HIST = [
+  { c:  5, sp:'~70–80×', sc:'p-hi',   tsx:'~40–50×', tc:'p-hi',   w:'~35–45×', wc:'p-hi',   rec:'Every 1–1.5 yrs',   ex:'1990, 1994, 1998, 2011, 2015, 2018, 2022, 2023…' },
+  { c: 10, sp:'~28–35×', sc:'p-hi',   tsx:'~18–24×', tc:'p-hi',   w:'~16–22×', wc:'p-hi',   rec:'Every 3–4 yrs',     ex:'1990, 1998, 2011, 2015–16, 2018, 2022' },
+  { c: 15, sp:'~18–22×', sc:'p-med',  tsx:'~12–16×', tc:'p-med',  w:'~10–14×', wc:'p-med',  rec:'Every 5–6 yrs',     ex:'1966, 1987, 1990, 2000–02, 2011, 2020, 2022' },
+  { c: 20, sp:'~12–15×', sc:'p-med',  tsx:'~8–11×',  tc:'p-med',  w:'~7–10×',  wc:'p-med',  rec:'Every 7–9 yrs',     ex:'1973–74, 1987, 2000–02, 2007–09, 2020, 2022' },
+  { c: 25, sp:'~8–10×',  sc:'p-low',  tsx:'~5–8×',   tc:'p-low',  w:'~5–7×',   wc:'p-low',  rec:'Every 10–13 yrs',   ex:'1937, 1973–74, 1987, 2000–02, 2007–09, 2022' },
+  { c: 30, sp:'~6–8×',   sc:'p-low',  tsx:'~4–6×',   tc:'p-low',  w:'~4–6×',   wc:'p-low',  rec:'Every 13–17 yrs',   ex:'1937, 1973–74, 1987, 2000–02, 2007–09, 2020' },
+  { c: 35, sp:'~5–7×',   sc:'p-low',  tsx:'~3–5×',   tc:'p-low',  w:'~3–5×',   wc:'p-low',  rec:'Every 15–20 yrs',   ex:'1929, 1937, 1973–74, 2000–02, 2007–09' },
+  { c: 40, sp:'~4–6×',   sc:'p-rare', tsx:'~3–4×',   tc:'p-rare', w:'~2–4×',   wc:'p-rare', rec:'Every 18–25 yrs',   ex:'1929–32, 1937, 1973–74, 2000–02, 2007–09' },
+  { c: 50, sp:'~3–4×',   sc:'p-rare', tsx:'~2–3×',   tc:'p-rare', w:'~2–3×',   wc:'p-rare', rec:'Every 25–35 yrs',   ex:'1929–32 (−89%), 2000–02 (−49%), 2007–09 (−57%)' },
+  { c: 60, sp:'~2–3×',   sc:'p-rare', tsx:'~1–2×',   tc:'p-rare', w:'~1×',     wc:'p-rare', rec:'Every 35–50 yrs',   ex:'1929–32 (−89%), 1937 (−60%). Near-miss: 2007–09' },
+  { c: 75, sp:'~1–2×',   sc:'p-rare', tsx:'~1×',     tc:'p-rare', w:'~0–1×',   wc:'p-rare', rec:'~50–80+ yrs; very rare', ex:'1929–32 (−89%) is essentially the only S&P example' },
+  { c: 90, sp:'~1×',     sc:'p-rare', tsx:'~0×',     tc:'p-rare', w:'~0×',     wc:'p-rare', rec:'Near-unprecedented in broad indices', ex:'1929–32 S&P (−89%). Common in individual stocks, not broad indices.' },
+];
+
+// ================================================================
+//  BUILD UI
+// ================================================================
+
+function buildCheckboxes() {
+  const wrap = document.getElementById('crash-checkboxes');
+  CRASH_LEVELS.forEach(c => {
+    const lbl = document.createElement('label');
+    const cb  = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = c; cb.id = `chk-${c}`; cb.checked = true;
+    cb.onchange = calculate;
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(` −${c}%`));
+    wrap.appendChild(lbl);
+  });
+}
+
+function buildHistTable() {
+  const tbody = document.getElementById('hist-body');
+  HIST.forEach(h => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="L clabel">≥${h.c}%</td>
+      <td class="L"><span class="pill ${h.sc}">${h.sp}</span></td>
+      <td class="L"><span class="pill ${h.tc}">${h.tsx}</span></td>
+      <td class="L"><span class="pill ${h.wc}">${h.w}</span></td>
+      <td class="L" style="font-size:0.7rem;white-space:normal;min-width:130px;color:var(--text-muted)">${h.rec}</td>
+      <td class="L" style="font-size:0.69rem;white-space:normal;min-width:180px;color:var(--text-muted)">${h.ex}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ================================================================
+//  CALCULATION
+// ================================================================
+
+function inputs() {
+  return {
+    cv:        parseFloat(document.getElementById('currentValue').value) || 0,
+    basis:     parseFloat(document.getElementById('costBasis').value)    || 0,
+    marginal:  parseFloat(document.getElementById('marginalRate').value) / 100 || 0,
+    inclusion: parseFloat(document.getElementById('inclusionRate').value)/ 100 || 0,
+    acct:      document.querySelector('input[name="acct"]:checked').value,
+  };
+}
+
+function calcTax(cv, basis, inclusion, marginal, acct) {
+  if (acct === 'tfsa' || acct === 'rrsp-cash') return 0;
+  if (acct === 'rrsp-out') return cv * marginal;
+  // taxable
+  return Math.max(0, cv - basis) * inclusion * marginal;
+}
+
+function scenario(cv, net, crashPct, rec) {
+  const c = crashPct / 100;
+  const rp = cv * (1 - c * (1 - rec));       // re-entry price
+  const units = net / rp;                     // units acquired
+  const final = units * cv;                   // value at full recovery
+  return { benefit: final - cv, final, rp };
+}
+
+// break-even: tax/cv = c*(1−rec)  =>  c = (tax/cv)/(1−rec)
+function breakEven(cv, basis, inclusion, marginal, acct, rec) {
+  if (rec >= 1.0) return Infinity;
+  const tax = calcTax(cv, basis, inclusion, marginal, acct);
+  if (cv === 0) return Infinity;
+  return (tax / cv / (1 - rec)) * 100;
+}
+
+function calculate() {
+  const { cv, basis, marginal, inclusion, acct } = inputs();
+
+  // ---- Account note ----
+  const noteEl   = document.getElementById('acct-note');
+  const taxPanel = document.getElementById('tax-panel');
+  const noTax = (acct === 'tfsa' || acct === 'rrsp-cash');
+
+  const isUS = document.querySelector('input[name="juris"]:checked').value === 'us';
+
+  const NOTES = {
+    'taxable':   { show: isUS, cls: 'note note-gold', dim: false,
+                   html: '<strong>US Taxable account:</strong> Long-term capital gains (assets held &gt;1 year) are taxed at preferential rates — 0%, 15%, or 20% depending on income — <em>not</em> your ordinary income marginal rate. Set <strong>inclusion rate to 100%</strong> and use your applicable long-term capital gains rate (typically 15% or 20%) in the marginal rate field above.' },
+    'tfsa':      { show: true, cls: 'note note-green', dim: true,
+                   html: isUS
+                     ? '<strong>Roth IRA:</strong> Qualified withdrawals are completely tax-free. Exit cost is $0. Any re-entry below today\'s price is immediately profitable — break-even crash is 0%.'
+                     : '<strong>TFSA:</strong> No tax on withdrawal. Exit cost is $0. Any re-entry below today\'s price adds value — break-even crash is 0%.' },
+    'rrsp-cash': { show: true, cls: 'note note-green', dim: true,
+                   html: isUS
+                     ? '<strong>401k / Traditional IRA — Stay in plan:</strong> Selling holdings and moving to cash <em>within</em> the account is <strong>not a taxable event</strong>. The money remains tax-sheltered; no tax is triggered until you actually withdraw from the account. For market-timing purposes this is equivalent to a Roth IRA — zero exit cost, break-even crash is 0%.'
+                     : '<strong>RRSP — Cash within plan:</strong> Selling and converting to cash <em>inside</em> the RRSP is <strong>not a taxable event</strong>. The money stays registered; no tax is triggered until you actually withdraw from the plan. For market-timing purposes this is equivalent to a TFSA — zero exit cost, break-even crash is 0%.' },
+    'rrsp-out':  { show: true, cls: 'note note-red',   dim: false,
+                   html: isUS
+                     ? '<strong>401k / Traditional IRA — Withdrawal:</strong> Withdrawals are taxed as <em>ordinary income at your full marginal rate</em> on the entire amount withdrawn (not just gains). Withdrawals before age 59½ also incur an additional 10% early withdrawal penalty. This is typically the most expensive exit option and requires a very deep crash to justify.'
+                     : '<strong>RRSP — Full withdrawal:</strong> Withdrawing money out of the RRSP triggers <em>income tax on the entire withdrawal amount</em> (not just the gain) at your marginal rate. This is typically the most expensive exit and requires a very deep crash to justify.' },
+  };
+  const n = NOTES[acct];
+  noteEl.style.display = n.show ? 'block' : 'none';
+  noteEl.style.marginTop = '9px';
+  if (n.show) { noteEl.className = n.cls; noteEl.innerHTML = n.html; }
+  taxPanel.classList.toggle('dimmed', noTax);
+
+  // ---- Portfolio bar ----
+  const gain      = Math.max(0, cv - basis);
+  const gainR     = cv > 0 ? gain / cv : 0;
+  const basisR    = 1 - gainR;
+  document.getElementById('pb-basis').style.width = (basisR * 100) + '%';
+  document.getElementById('pb-gain').style.width  = (gainR  * 100) + '%';
+  document.getElementById('lbl-basis').textContent = `Cost Basis: ${fmt(basis)} (${(basisR*100).toFixed(0)}%)`;
+  document.getElementById('lbl-gain').textContent  = `Unrealized Gain: ${fmt(gain)} (${(gainR*100).toFixed(0)}%)`;
+
+  // ---- Tax summary ----
+  const tax       = calcTax(cv, basis, inclusion, marginal, acct);
+  const net       = cv - tax;
+  const dragPct   = cv > 0 ? tax / cv * 100 : 0;
+  document.getElementById('tax-summary').innerHTML = `
+    <div class="vgrid">
+      <div class="vbox"><div class="vbox-lbl">Tax on exit</div><div class="vbox-num red">${fmt(tax)}</div></div>
+      <div class="vbox"><div class="vbox-lbl">Net proceeds</div><div class="vbox-num green">${fmt(net)}</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:0.73rem;color:var(--text-muted);">
+      Effective exit drag: <span style="color:var(--red);font-family:var(--mono)">${dragPct.toFixed(2)}%</span> of portfolio value lost to tax
+    </div>`;
+
+  // ---- Break-even cards ----
+  const beCards   = document.getElementById('be-cards');
+  const beSummary = document.getElementById('be-summary');
+  beCards.innerHTML = '';
+
+  REENTRY.forEach(rp => {
+    const be  = noTax ? 0 : breakEven(cv, basis, inclusion, marginal, acct, rp.rec);
+    const card = document.createElement('div');
+    card.className = 'be-card';
+    let vc = 'be-val', vt, st;
+    if (noTax) {
+      vt = '0%'; vc += ' green'; st = 'Always worth it';
+    } else if (rp.rec >= 1.0) {
+      vt = '—'; vc += ' muted'; st = 'Re-enter at top = no gain';
+    } else if (!isFinite(be) || be > 100) {
+      vt = '>100%'; vc += ' muted'; st = 'Effectively impossible';
+    } else if (be <= 0) {
+      vt = '0%'; vc += ' green'; st = 'Always worth it';
+    } else {
+      vt = be.toFixed(1) + '%'; st = 'Min crash needed';
+    }
+    card.innerHTML = `<div class="be-id">${rp.id}</div><div class="be-lbl">${rp.label}</div><div class="${vc}">${vt}</div><div class="be-sub">${st}</div>`;
+    beCards.appendChild(card);
+  });
+
+  const be0 = noTax ? 0 : breakEven(cv, basis, inclusion, marginal, acct, 0);
+  if (noTax) {
+    beSummary.innerHTML = `No tax on exit. Break-even crash is <strong style="color:var(--green)">0%</strong> — any re-entry below today's price is immediately profitable.`;
+  } else if (acct === 'rrsp-out') {
+    beSummary.innerHTML = `RRSP withdrawal taxes the <em>full amount</em> as income. Exit drag is <strong style="color:var(--red)">${dragPct.toFixed(2)}%</strong> of portfolio. You need at least a <strong style="color:var(--gold);font-family:var(--mono)">${isFinite(be0) ? be0.toFixed(1) : '>100'}% crash</strong> (at the exact bottom) to break even.`;
+  } else if (isFinite(be0) && be0 > 0) {
+    beSummary.innerHTML = `With these settings, you need at least a <strong style="color:var(--gold);font-family:var(--mono)">${be0.toFixed(1)}% crash</strong> to break even — assuming you re-enter at the very bottom. Re-entering later requires a proportionally deeper crash.`;
+  } else {
+    beSummary.textContent = 'Adjust your portfolio details to see the break-even analysis.';
+  }
+
+  // ---- Results table ----
+  const selected = CRASH_LEVELS.filter(c => { const el = document.getElementById(`chk-${c}`); return el && el.checked; });
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = '';
+
+  selected.forEach(cp => {
+    const h  = HIST.find(x => x.c === cp);
+    const tr = document.createElement('tr');
+    let cells = `
+      <td class="L clabel">−${cp}%</td>
+      <td class="L">${h ? `<span class="pill ${h.sc}">${h.sp}</span>` : '—'}</td>
+      <td class="L">${h ? `<span class="pill ${h.tc}">${h.tsx}</span>` : '—'}</td>
+      <td class="L">${h ? `<span class="pill ${h.wc}">${h.w}</span>` : '—'}</td>`;
+
+    REENTRY.forEach(rp => {
+      const { benefit } = scenario(cv, net, cp, rp.rec);
+      const pct = cv > 0 ? (benefit / cv * 100) : 0;
+      const pctStr = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      const alwaysNeg = rp.rec >= 1.0 && !noTax;
+      if (alwaysNeg) {
+        cells += `<td class="cneg">${fmt(benefit)}<div class="cell-pct">${pctStr}</div></td>`;
+      } else {
+        const cls = benefit > 1 ? 'cpos' : benefit < -1 ? 'cneg' : 'czero';
+        const sgn = benefit > 1 ? '+' : '';
+        cells += `<td class="${cls}">${sgn}${fmt(benefit)}<div class="cell-pct">${pctStr}</div></td>`;
+      }
+    });
+
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+}
+
+// ================================================================
+//  HELPERS
+// ================================================================
+
+function fmt(n) {
+  if (!isFinite(n)) return '—';
+  const a = Math.abs(n), s = n < 0 ? '−' : '';
+  if (a >= 1000000) return s + '$' + (a/1000000).toFixed(2) + 'M';
+  if (a >= 1000)    return s + '$' + Math.round(a).toLocaleString();
+  return s + '$' + a.toFixed(0);
+}
+
+function syncMarginal(val, src) {
+  const n = parseFloat(val) || 0;
+  if (src === 'range') {
+    document.getElementById('marginalRate').value = n;
+    document.getElementById('mrlabel').textContent = n.toFixed(1) + '%';
+  } else {
+    const c = Math.min(65, Math.max(10, n));
+    document.getElementById('mrange').value = c;
+    document.getElementById('mrlabel').textContent = c.toFixed(1) + '%';
+  }
+  calculate();
+}
+
+function syncInclusion(val, src) {
+  const n = parseFloat(val) || 0;
+  if (src === 'range') {
+    document.getElementById('inclusionRate').value = n;
+    document.getElementById('irlabel').textContent = Math.round(n) + '%';
+  } else {
+    const c = Math.min(100, Math.max(0, n));
+    document.getElementById('irange').value = c;
+    document.getElementById('irlabel').textContent = Math.round(c) + '%';
+  }
+  calculate();
+}
+
+function onJurisdictionChange() {
+  const isUS = document.querySelector('input[name="juris"]:checked').value === 'us';
+
+  // Relabel account type tabs
+  document.getElementById('lbl-tax').innerHTML       = 'Taxable';
+  document.getElementById('lbl-tax-free').innerHTML  = isUS
+    ? 'Roth IRA<br><span style="font-size:0.62rem;opacity:0.75">no tax</span>'
+    : 'TFSA';
+  document.getElementById('lbl-reg-cash').innerHTML  = isUS
+    ? '401k / IRA<br><span style="font-size:0.62rem;opacity:0.75">stay in plan</span>'
+    : 'RRSP<br><span style="font-size:0.62rem;opacity:0.75">cash in plan</span>';
+  document.getElementById('lbl-reg-out').innerHTML   = isUS
+    ? '401k / IRA<br><span style="font-size:0.62rem;opacity:0.75">withdraw</span>'
+    : 'RRSP<br><span style="font-size:0.62rem;opacity:0.75">withdraw</span>';
+
+  // Update inclusion rate hint
+  const hint = document.getElementById('juris-tax-hint');
+  if (isUS) {
+    hint.className   = 'note note-gold';
+    hint.innerHTML   = '<strong>US:</strong> For long-term capital gains set inclusion to <strong>100%</strong> and use your long-term rate (typically 15% or 20%) — <em>not</em> your ordinary income rate. Short-term gains (held &lt;1 yr) use ordinary income rate + 100% inclusion.';
+  } else {
+    hint.className   = 'note note-blue';
+    hint.innerHTML   = 'Default 50% — only half your gain is taxable income. Set to 100% if gains are treated as ordinary income in your jurisdiction, or adjust to match your local rules.';
+  }
+
+  calculate();
+}
+
+function toggleExplain() {
+  document.getElementById('ebody').classList.toggle('open');
+  document.getElementById('earrow').classList.toggle('open');
+}
+
+// ================================================================
+//  BOOT
+// ================================================================
+buildCheckboxes();
+buildHistTable();
+calculate();
+</script>
+</body>
+</html>
